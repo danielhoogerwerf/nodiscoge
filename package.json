@@ -1,0 +1,17 @@
+{
+  "name": "discogs_js",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www",
+    "seed": "node ./seed/seeds.js",
+    "dev": "set DEBUG=discogs_js:* && nodemon ./api"
+  },
+  "dependencies": {
+    "axios": "^0.23.0",
+    "dotenv": "^10.0.0",
+    "mongoose": "^6.0.12",
+    "node-html-parser": "^5.1.0"
+  }
+}
