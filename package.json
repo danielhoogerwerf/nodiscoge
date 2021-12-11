@@ -1,12 +1,11 @@
 {
-  "name": "discogs_js",
-  "version": "1.0.0",
+  "name": "nodiscoge",
+  "version": "0.3.0",
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www",
-    "seed": "node ./seed/seeds.js",
-    "dev": "set DEBUG=discogs_js:* && nodemon ./api"
+    "start": "node ./main.js",
+    "dev": "set DEBUG=nodiscoge:* && nodemon ./main.js"
   },
   "dependencies": {
     "axios": "^0.23.0",

@@ -1,12 +1,14 @@
-import { createRequire } from 'module'
+import { sleepTimer } from "./sleep.mjs";
+import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const axios = require("axios")
+const axios = require("axios");
 
-class ApiData {
+class DiscogsAPI {
   constructor(token, user, headers) {
     this.user = user;
     this.headers = headers;
     this.token = token;
+    this.apiLimit = 1000;
     this.discogsWantListUrl = "https://api.discogs.com/users/";
     this.discogsMarketPlaceUrl =
       "https://api.discogs.com/marketplace/listings/";
@@ -14,39 +16,37 @@ class ApiData {
     this.discogsRssUrl = "https://www.discogs.com/sell/release/";
   }
 
-  apiLimitReached(delay) {
-    return new Promise((resolve) => setTimeout(resolve, delay));
-  }
-
-  fetchData(url, funct) {
-    const onError = (msg) => {
-      return msg.then(() => funct());
-    };
-    return axios
-      .get(url, {
-        headers: this.headers,
-        params: { token: this.token },
-        timeout: 10000,
-      })
-      .then((response) => {
-        if (!response.headers["x-discogs-ratelimit-remaining"]) {
-          console.log("API Limit reached. Waiting for a minute.");
-          apiLimitReached(60001);
+  fetchData(url) {
+    const performConnection = async () => {
+      try {
+        // Limit of 10 is based on tests. Seems to pause the requests properly.
+        if (this.apiLimit <= 10) {
+          console.log("The API limit has been hit. Pausing the download of the URL.");
+          await sleepTimer(60001);
+          console.log("Limit has been reset. Resuming operation.")
         }
-        
+
+        const response = await axios.get(url, {
+          headers: this.headers,
+          params: { token: this.token },
+          timeout: 10000,
+        });
+
+        this.apiLimit = response.headers["x-discogs-ratelimit-remaining"];
+        //console.log(`Remaining API calls: ${this.apiLimit}`);
         return {
           data: response.data,
-          limit: response.headers["x-discogs-ratelimit-remaining"],
+          limit: this.apiLimit,
         };
-      })
-      .catch((error) => onError(error));
+      } catch (error) {
+        throw error;
+      }
+    };
+    return performConnection();
   }
 
   getWantListData() {
-    return this.fetchData(
-      `${this.discogsWantListUrl}${this.user}/wants`,
-      this.getWantListData
-    );
+    return this.fetchData(`${this.discogsWantListUrl}${this.user}/wants`);
   }
 
   createUrlPages(urls) {
@@ -81,9 +81,7 @@ class ApiData {
   }
 
   getParallelPageResults(urls) {
-    return Promise.all(
-      urls.map((u) => this.fetchData(u, this.getParallelPageResults))
-    );
+    return Promise.all(urls.map((u) => this.fetchData(u)));
   }
 
   parseRemainingData(data) {
@@ -99,21 +97,25 @@ class ApiData {
     const results = [];
 
     const getData = async () => {
-      const getWantListData = await this.getWantListData();
-      const getPages = this.createUrlPages(getWantListData);
-      const getFirstResults = this.splitWantListResults(
-        getWantListData.data.wants
-      );
+      try {
+        const getWantListData = await this.getWantListData();
 
-      const getRemainingData = await this.getParallelPageResults(getPages);
-      const remainingData = this.parseRemainingData(getRemainingData);
-      results.push(...getFirstResults, ...remainingData);
+        const getPages = this.createUrlPages(getWantListData);
+        const getFirstResults = this.splitWantListResults(
+          getWantListData.data.wants
+        );
 
-      return results;
+        const getRemainingData = await this.getParallelPageResults(getPages);
+        const remainingData = this.parseRemainingData(getRemainingData);
+        results.push(...getFirstResults, ...remainingData);
+        return results;
+      } catch (error) {
+        throw error;
+      }
     };
 
     return getData();
   }
 }
 
-export {ApiData};
+export { DiscogsAPI };
